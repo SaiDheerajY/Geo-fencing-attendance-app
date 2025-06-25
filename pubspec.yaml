@@ -19,8 +19,11 @@ dependencies:
   cloud_firestore: ^5.6.8
   excel: ^4.0.6
   path_provider: ^2.1.5
-  open_filex: ^4.3.2 # Consider replacing with 'url_launcher' if not already using open_filex elsewhere.
-  url_launcher: ^6.3.0 # <--- Add this line for opening folders/files more robustly
+  open_filex: ^4.3.2 
+
+
+  
+  url_launcher: ^6.3.0 
   fl_chart: ^1.0.0
   device_info_plus: ^10.1.0
   crypto: ^3.0.3
