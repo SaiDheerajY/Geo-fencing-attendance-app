@@ -1,7 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,7 +37,6 @@ enum SortFilter { person, week, month, year, all }
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
-
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
@@ -49,13 +47,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _isLoading = true;
 
   // FILTER STATE
-  String? _selectedPsName;
+  List<String>? _selectedPsNames; // Changed to List<String>
   DateTime? _selectedDay;
   DateTimeRange? _selectedDateRange;
   int? _selectedMonth;
   int? _selectedYear;
-
-  // Screenshot controllers for chart export
+  // Screenshot controllers for chart export - Kept for compilation but not used in export
   final ScreenshotController _pieChartController = ScreenshotController();
   final ScreenshotController _barChartController = ScreenshotController();
 
@@ -134,9 +131,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   List<AttendanceRecord> get _filteredRecords {
     List<AttendanceRecord> records = List.from(allRecords);
-    if (_selectedPsName != null) {
-      records = records.where((r) => r.psName == _selectedPsName).toList();
-    }
+
+    // Apply date/time filters
     if (_selectedDay != null) {
       records = records
           .where((r) =>
@@ -157,6 +153,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return matchMonth && matchYear;
       }).toList();
     }
+
+    // Apply Police Station filter
+    if (_selectedPsNames != null && _selectedPsNames!.isNotEmpty) {
+      records = records.where((r) => _selectedPsNames!.contains(r.psName)).toList();
+    }
+
+    // Apply general SortFilter
     final now = DateTime.now();
     switch (_selectedFilter) {
       case SortFilter.all:
@@ -187,14 +190,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return records;
   }
 
-  // --- FILTERED ANALYTICS GETTERS ---
-  int get _filteredCheckedInCount => _filteredRecords.where((r) => r.checkOutTime == null).length;
+  // --- ANALYTICS FUNCTIONS (now accept a list of records) ---
+  int getCheckedInCount(List<AttendanceRecord> records) =>
+      records.where((r) => r.checkOutTime == null).length;
+  int getTotalUniqueMarshals(List<AttendanceRecord> records) =>
+      records.map((r) => r.name).toSet().length;
 
-  int get _filteredTotalUniqueMarshals => _filteredRecords.map((r) => r.name).toSet().length;
-
-  Map<String, Duration> get _filteredTotalHoursPerMarshal {
+  Map<String, Duration> getTotalHoursPerMarshal(List<AttendanceRecord> records) {
     final map = <String, Duration>{};
-    for (final record in _filteredRecords) {
+    for (final record in records) {
       map.update(
         record.name,
         (d) => d + record.totalTimeCheckedIn,
@@ -204,9 +208,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return map;
   }
 
-  Map<String, String> get _filteredMarshalPsNames {
+  Map<String, String> getMarshalPsNames(List<AttendanceRecord> records) {
     final map = <String, String>{};
-    for (final record in _filteredRecords) {
+    for (final record in records) {
       map[record.name] = record.psName;
     }
     return map;
@@ -218,23 +222,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: DropdownSearch<String>(
+          child: DropdownSearch<String>.multiSelection(
               items: (String? filter, _) async {
                 if (filter == null || filter.isEmpty) return _allPsNames;
                 return _allPsNames
                     .where((ps) => ps.toLowerCase().contains(filter.toLowerCase()))
                     .toList();
               },
-              selectedItem: _selectedPsName,
-              onChanged: (ps) => setState(() => _selectedPsName = ps),
+              selectedItems: _selectedPsNames ?? [],
+              onChanged: (psList) => setState(() => _selectedPsNames = psList),
               decoratorProps: const DropDownDecoratorProps(
                 decoration: InputDecoration(
-                  labelText: "Police Station",
+                  labelText: "Police Station(s)",
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   border: OutlineInputBorder(),
                 ),
               ),
-              popupProps: const PopupProps.menu(
+              popupProps: const PopupPropsMultiSelection.menu(
                 fit: FlexFit.loose,
                 searchFieldProps: TextFieldProps(
                   decoration: InputDecoration(
@@ -346,7 +350,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: Builder(
             builder: (context) {
               String filterSummary = '';
-              if (_selectedPsName != null) filterSummary += 'PS: $_selectedPsName  ';
+              if (_selectedPsNames != null && _selectedPsNames!.isNotEmpty)
+                filterSummary += 'PS: ${_selectedPsNames!.join(', ')}  ';
               if (_selectedDay != null) {
                 filterSummary +=
                     'Day: ${_selectedDay!.year}-${_selectedDay!.month.toString().padLeft(2, '0')}-${_selectedDay!.day.toString().padLeft(2, '0')}  ';
@@ -354,7 +359,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               if (_selectedDateRange != null) {
                 filterSummary +=
                     'Range: ${_selectedDateRange!.start.year}-${_selectedDateRange!.start.month.toString().padLeft(2, '0')}-${_selectedDateRange!.start.day.toString().padLeft(2, '0')}'
-                    ' to ${_selectedDateRange!.end.year}-${_selectedDateRange!.end.month.toString().padLeft(2, '0')}-${_selectedDateRange!.end.day.toString().padLeft(2, '0')}  ';
+                    ' to '
+                    '${_selectedDateRange!.end.year}-${_selectedDateRange!.end.month.toString().padLeft(2, '0')}-${_selectedDateRange!.end.day.toString().padLeft(2, '0')}  ';
               }
               if (_selectedMonth != null) {
                 filterSummary += 'Month: ${_selectedMonth.toString().padLeft(2, '0')}  ';
@@ -371,11 +377,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  List<PieChartSectionData> _getPieChartSections() {
-    final int checkedIn = _filteredCheckedInCount;
-    final int total = _filteredTotalUniqueMarshals;
-    final double checkedInPercentage = total > 0 ? (checkedIn / total) * 100 : 0;
-    final double checkedOutPercentage = total > 0 ? ((total - checkedIn) / total) * 100 : 0;
+  List<PieChartSectionData> _getPieChartSections(int checkedIn, int totalUnique) {
+    final double checkedInPercentage = totalUnique > 0 ? (checkedIn / totalUnique) * 100 : 0;
+    final double checkedOutPercentage =
+        totalUnique > 0 ? ((totalUnique - checkedIn) / totalUnique) * 100 : 0;
     return [
       PieChartSectionData(
         color: const Color.fromARGB(255, 14, 242, 41),
@@ -408,17 +413,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  List<BarChartGroupData> _getBarGroups() {
-    final List<String> marshalNames = _filteredTotalHoursPerMarshal.keys.toList();
+  List<BarChartGroupData> _getBarGroups(
+      Map<String, Duration> totalHoursPerMarshal, Map<String, String> marshalPsNames) {
+    final List<String> marshalNames = totalHoursPerMarshal.keys.toList();
     marshalNames.sort((a, b) {
-      int psComp = (_filteredMarshalPsNames[a] ?? '').compareTo(_filteredMarshalPsNames[b] ?? '');
+      int psComp = (marshalPsNames[a] ?? '').compareTo(marshalPsNames[b] ?? '');
       if (psComp != 0) return psComp;
       return a.compareTo(b);
     });
     return marshalNames.asMap().entries.map((entry) {
       int index = entry.key;
       String name = entry.value;
-      double totalHours = _filteredTotalHoursPerMarshal[name]?.inMinutes.toDouble() ?? 0;
+      double totalHours = totalHoursPerMarshal[name]?.inMinutes.toDouble() ?? 0;
       totalHours = totalHours / 60;
       return BarChartGroupData(
         x: index,
@@ -435,17 +441,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
-  Widget _getBottomTitles(double value, TitleMeta meta) {
-    final names = _filteredTotalHoursPerMarshal.keys.toList();
-    names.sort((a, b) {
-      int psComp = (_filteredMarshalPsNames[a] ?? '').compareTo(_filteredMarshalPsNames[b] ?? '');
-      if (psComp != 0) return psComp;
-      return a.compareTo(b);
-    });
+  Widget _getBottomTitles(
+      double value, TitleMeta meta, List<String> marshalNames, Map<String, String> marshalPsNames) {
     String text = '';
-    if (value.toInt() >= 0 && value.toInt() < names.length) {
-      text = names[value.toInt()];
-      final ps = _filteredMarshalPsNames[text] ?? '';
+    if (value.toInt() >= 0 && value.toInt() < marshalNames.length) {
+      text = marshalNames[value.toInt()];
+      final ps = marshalPsNames[text] ?? '';
       text = '$text\n($ps)';
     }
     return SideTitleWidget(
@@ -464,17 +465,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  double _getMaxYValue() {
-    if (_filteredTotalHoursPerMarshal.isEmpty) return 10;
+  double _getMaxYValue(Map<String, Duration> totalHoursPerMarshal) {
+    if (totalHoursPerMarshal.isEmpty) return 10;
     double maxHours = 0;
-    for (final duration in _filteredTotalHoursPerMarshal.values) {
+    for (final duration in totalHoursPerMarshal.values) {
       double hours = duration.inMinutes / 60;
       if (hours > maxHours) maxHours = hours;
     }
     return (maxHours * 1.2).ceilToDouble();
   }
 
-  // --- EXPORT TO EXCEL WITH CHART IMAGES ---
+  // --- EXPORT TO EXCEL ---
   Future<void> exportToExcelWithCharts(List<AttendanceRecord> records, BuildContext context) async {
     try {
       PermissionStatus status;
@@ -490,9 +491,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return;
       }
 
-      // Capture chart images
-      final pieImage = await _pieChartController.capture();
-      final barImage = await _barChartController.capture();
+      // Screenshots are no longer captured or added to Excel
 
       // Create Excel workbook
       final workbook = xlsio.Workbook();
@@ -519,18 +518,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         sheet.getRangeByName('F$row').setText(record.checkInLocation);
         sheet.getRangeByName('G$row').setText(record.checkOutLocation ?? 'N/A');
         row++;
-      }
-
-      // Add Pie Chart Image
-      if (pieImage != null) {
-        final base64Pie = base64Encode(pieImage);
-        sheet.pictures.addBase64(row + 2, 1, base64Pie);
-      }
-
-      // Add Bar Chart Image
-      if (barImage != null) {
-        final base64Bar = base64Encode(barImage);
-        sheet.pictures.addBase64(row + 22, 1, base64Bar);
       }
 
       final bytes = workbook.saveAsStream();
@@ -587,6 +574,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final List<AttendanceRecord> currentFilteredRecords = _filteredRecords;
+
+    final Map<String, List<AttendanceRecord>> recordsByPs = {};
+    // If _selectedPsNames is not empty, iterate through selected PS names.
+    // Otherwise, find all unique PS names from the currentFilteredRecords (which already applies date/time filters)
+    // to display overall data grouped by PS.
+    final List<String> psNamesToDisplay = (_selectedPsNames != null && _selectedPsNames!.isNotEmpty)
+        ? _selectedPsNames!
+        : currentFilteredRecords.map((r) => r.psName).toSet().toList();
+
+    for (final psName in psNamesToDisplay) {
+      recordsByPs[psName] =
+          currentFilteredRecords.where((record) => record.psName == psName).toList();
+    }
+
+    final sortedPsNames = recordsByPs.keys.toList()..sort();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
@@ -603,7 +607,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: () => exportToExcelWithCharts(_filteredRecords, context),
+            onPressed: () => exportToExcelWithCharts(currentFilteredRecords, context),
             tooltip: 'Export to Excel',
           ),
           IconButton(
@@ -619,72 +623,93 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: Column(
                 children: [
                   _buildFilters(),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Card(
-                      elevation: 4,
+                  if (sortedPsNames.isEmpty)
+                    const Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Attendance Overview',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Marshals Checked In: $_filteredCheckedInCount'),
-                                Text('Total Marshals: $_filteredTotalUniqueMarshals'),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            if (_filteredTotalUniqueMarshals > 0)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: EdgeInsets.all(16.0),
+                        child: Text(
+                            'No attendance records found for the selected filters or police stations.'),
+                      ),
+                    ),
+                  ...sortedPsNames.map((psName) {
+                    final psRecords = recordsByPs[psName]!;
+                    final psCheckedInCount = getCheckedInCount(psRecords);
+                    final psTotalUniqueMarshals = getTotalUniqueMarshals(psRecords);
+                    final psTotalHoursPerMarshal = getTotalHoursPerMarshal(psRecords);
+                    final psMarshalNames = psTotalHoursPerMarshal.keys.toList()
+                      ..sort((a, b) {
+                        int marshalPsComp = (getMarshalPsNames(psRecords)[a] ?? '')
+                            .compareTo(getMarshalPsNames(psRecords)[b] ?? '');
+                        if (marshalPsComp != 0) return marshalPsComp;
+                        return a.compareTo(b);
+                      });
+                    final psMarshalPsNames = getMarshalPsNames(psRecords);
+                    final psMaxYValue = _getMaxYValue(psTotalHoursPerMarshal);
+
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Card(
+                        elevation: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Attendance Overview for ${psName.isEmpty ? 'Unknown PS' : psName}',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Check-in Status',
-                                      style: TextStyle(fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  Screenshot(
-                                    controller: _pieChartController,
-                                    child: SizedBox(
+                                  Text('Marshals Checked In: $psCheckedInCount'),
+                                  Text('Total Marshals: $psTotalUniqueMarshals'),
+                                ],
+                              ),
+                              const SizedBox(height: 15),
+                              if (psTotalUniqueMarshals > 0)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Check-in Status',
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
                                       height: 200,
                                       child: PieChart(
                                         PieChartData(
-                                          sections: _getPieChartSections(),
+                                          sections: _getPieChartSections(
+                                              psCheckedInCount, psTotalUniqueMarshals),
                                           centerSpaceRadius: 40,
                                           sectionsSpace: 2,
                                           borderData: FlBorderData(show: false),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      _buildLegend(Colors.green, 'Checked In'),
-                                      const SizedBox(width: 20),
-                                      _buildLegend(Colors.red, 'Checked Out/Not In'),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 15),
-                                ],
-                              ),
-                            const Text('Total Hours Logged:',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
-                            _filteredTotalHoursPerMarshal.isEmpty
-                                ? const Text('No records yet to display chart.')
-                                : Screenshot(
-                                    controller: _barChartController,
-                                    child: SizedBox(
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        _buildLegend(Colors.green, 'Checked In'),
+                                        const SizedBox(width: 20),
+                                        _buildLegend(Colors.red, 'Checked Out/Not In'),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 15),
+                                  ],
+                                ),
+                              Text(
+                                  'Total Hours Logged for ${psName.isEmpty ? 'Unknown PS' : psName}:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+                              psTotalHoursPerMarshal.isEmpty
+                                  ? const Text('No records yet to display chart for this PS.')
+                                  : SizedBox(
                                       height: 250,
                                       child: BarChart(
                                         BarChartData(
-                                          barGroups: _getBarGroups(),
+                                          barGroups: _getBarGroups(
+                                              psTotalHoursPerMarshal, psMarshalPsNames),
                                           borderData: FlBorderData(
                                             show: true,
                                             border: Border.all(
@@ -696,7 +721,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                             bottomTitles: AxisTitles(
                                               sideTitles: SideTitles(
                                                 showTitles: true,
-                                                getTitlesWidget: _getBottomTitles,
+                                                getTitlesWidget: (value, meta) => _getBottomTitles(
+                                                    value, meta, psMarshalNames, psMarshalPsNames),
                                                 reservedSize: 52,
                                               ),
                                             ),
@@ -713,17 +739,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                                 sideTitles: SideTitles(showTitles: false)),
                                           ),
                                           alignment: BarChartAlignment.spaceAround,
-                                          maxY: _getMaxYValue(),
+                                          maxY: psMaxYValue,
                                         ),
                                       ),
                                     ),
-                                  ),
-                            const SizedBox(height: 15),
-                          ],
+                              const SizedBox(height: 15),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  }).toList(),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: DropdownButton<SortFilter>(
@@ -743,14 +769,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       }).toList(),
                     ),
                   ),
-                  _filteredRecords.isEmpty
+                  currentFilteredRecords.isEmpty
                       ? const Center(child: Text('No attendance records found for this filter.'))
                       : ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _filteredRecords.length,
+                          itemCount: currentFilteredRecords.length,
                           itemBuilder: (context, index) {
-                            final record = _filteredRecords[index];
+                            final record = currentFilteredRecords[index];
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               child: Padding(
@@ -780,6 +806,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                               onPressed: () => _showEditUserLocationDialog(
                                                   record.userId, record.name),
                                               tooltip: 'Edit Work Location',
+                                            ),
+                                            // New Edit User Details Button
+                                            IconButton(
+                                              icon: const Icon(Icons.person_outline_sharp,
+                                                  color: Colors.indigo),
+                                              onPressed: () =>
+                                                  _showEditUserDetailsDialog(record.userId),
+                                              tooltip: 'Edit User Details',
                                             ),
                                             IconButton(
                                               icon: const Icon(Icons.delete, color: Colors.red),
@@ -818,14 +852,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) => const CreateUserDialog(),
     ).then((_) {
       _fetchAttendanceData();
-    }); //
+    });
+    //
   }
 
   Future<void> _showEditUserLocationDialog(String userId, String userName) async {
     DocumentSnapshot userDoc =
         await FirebaseFirestore.instance.collection('Users').doc(userId).get();
-    double? currentLat = (userDoc.data() as Map<String, dynamic>?)?['workLatitude'] as double?; //
-    double? currentLon = (userDoc.data() as Map<String, dynamic>?)?['workLongitude'] as double?; //
+    double? currentLat = (userDoc.data() as Map<String, dynamic>?)?['workLatitude'] as double?;
+    double? currentLon = (userDoc.data() as Map<String, dynamic>?)?['workLongitude'] as double?;
     await showDialog(
       context: context,
       builder: (context) => EditUserLocationDialog(
@@ -836,7 +871,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     ).then((_) {
       _fetchAttendanceData();
-    }); //
+    });
+    //
+  }
+
+  Future<void> _showEditUserDetailsDialog(String userId) async {
+    DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance.collection('Users').doc(userId).get();
+    if (!userDoc.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not found.')),
+      );
+      return;
+    }
+
+    Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+    String currentName = userData['Name'] as String? ?? '';
+    String currentPsName = userData['psName'] as String? ?? '';
+    String currentEmail = userData['email'] as String? ?? '';
+    bool currentIsAdmin = userData['isAdmin'] as bool? ?? false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => EditUserDetailsDialog(
+        userId: userId,
+        currentName: currentName,
+        currentPsName: currentPsName,
+        currentEmail: currentEmail,
+        currentIsAdmin: currentIsAdmin,
+      ),
+    ).then((_) {
+      _fetchAttendanceData(); // Refresh data after potential edit
+    });
   }
 
   Future<void> _deleteUser(String userId, String userName) async {
@@ -876,7 +942,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             .get();
         WriteBatch batch = FirebaseFirestore.instance.batch(); //
         for (var doc in attendanceDocs.docs) {
-          batch.delete(doc.reference); //
+          batch.delete(doc.reference);
+          //
         }
         await batch.commit();
 
@@ -923,7 +990,8 @@ class CreateUserDialog extends StatefulWidget {
   const CreateUserDialog({super.key});
 
   @override
-  State<CreateUserDialog> createState() => _CreateUserDialogState(); //
+  State<CreateUserDialog> createState() => _CreateUserDialogState();
+  //
 }
 
 class _CreateUserDialogState extends State<CreateUserDialog> {
@@ -937,7 +1005,6 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
   bool _isAdmin = false;
   bool _loading = false; //
   String? _error;
-
   Future<void> _createUser() async {
     setState(() {
       _loading = true;
@@ -987,11 +1054,14 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
         Navigator.pop(context); //
       }
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message); //
+      setState(() => _error = e.message);
+      //
     } catch (e) {
-      setState(() => _error = e.toString()); //
+      setState(() => _error = e.toString());
+      //
     } finally {
-      setState(() => _loading = false); //
+      setState(() => _loading = false);
+      //
     }
   }
 
@@ -1057,9 +1127,11 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                 keyboardType: TextInputType.number, //
                 validator: (v) {
                   if (v != null && v.isNotEmpty && double.tryParse(v) == null) {
-                    return 'Please enter a valid number for longitude.'; //
+                    return 'Please enter a valid number for longitude.';
+                    //
                   }
-                  return null; //
+                  return null;
+                  //
                 },
               ),
               CheckboxListTile(
@@ -1129,7 +1201,8 @@ class _EditUserLocationDialogState extends State<EditUserLocationDialog> {
   void dispose() {
     _latitudeController.dispose();
     _longitudeController.dispose();
-    super.dispose(); //
+    super.dispose();
+    //
   }
 
   Future<void> _updateUserLocation() async {
@@ -1158,11 +1231,13 @@ class _EditUserLocationDialogState extends State<EditUserLocationDialog> {
     } catch (e) {
       setState(() {
         _error = 'Failed to update location: $e';
-      }); //
+      });
+      //
     } finally {
       setState(() {
         _loading = false;
-      }); //
+      });
+      //
     }
   }
 
@@ -1186,19 +1261,20 @@ class _EditUserLocationDialogState extends State<EditUserLocationDialog> {
                     //
                     return 'Please enter a valid number.';
                   }
-                  return null;
-                }, //
+                  return null; //
+                },
               ),
               TextFormField(
                 controller: _longitudeController,
                 decoration: const InputDecoration(labelText: 'Work Location Longitude'),
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.number, //
                 validator: (v) {
                   //
                   if (v != null && v.isNotEmpty && double.tryParse(v) == null) {
                     return 'Please enter a valid number.'; //
                   }
-                  return null; //
+                  return null;
+                  //
                 },
               ),
             ],
@@ -1217,6 +1293,135 @@ class _EditUserLocationDialogState extends State<EditUserLocationDialog> {
                   width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Save'),
         ), //
+      ],
+    );
+  }
+}
+
+// --- NEW EditUserDetailsDialog ---
+class EditUserDetailsDialog extends StatefulWidget {
+  final String userId;
+  final String currentName;
+  final String currentPsName;
+  final String currentEmail; // Display only
+  final bool currentIsAdmin;
+
+  const EditUserDetailsDialog({
+    super.key,
+    required this.userId,
+    required this.currentName,
+    required this.currentPsName,
+    required this.currentEmail,
+    required this.currentIsAdmin,
+  });
+
+  @override
+  State<EditUserDetailsDialog> createState() => _EditUserDetailsDialogState();
+}
+
+class _EditUserDetailsDialogState extends State<EditUserDetailsDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _psNameController;
+  late bool _isAdmin;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.currentName);
+    _psNameController = TextEditingController(text: widget.currentPsName);
+    _isAdmin = widget.currentIsAdmin;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _psNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updateUserDetails() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('Users').doc(widget.userId).update({
+        'Name': _nameController.text.trim(),
+        'psName': _psNameController.text.trim(),
+        'isAdmin': _isAdmin,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User details updated for ${widget.currentName}')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to update user details: $e';
+      });
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit User Details'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (v) => v == null || v.isEmpty ? 'Enter name' : null,
+              ),
+              TextFormField(
+                controller: _psNameController,
+                decoration: const InputDecoration(labelText: 'PS Name (Police Station)'),
+                validator: (v) => v == null || v.isEmpty ? 'Enter police station name' : null,
+              ),
+              TextFormField(
+                controller: TextEditingController(text: widget.currentEmail), // Display-only
+                decoration: const InputDecoration(labelText: 'Email (Not editable)'),
+                readOnly: true,
+              ),
+              CheckboxListTile(
+                value: _isAdmin,
+                onChanged: (v) => setState(() => _isAdmin = v!),
+                title: const Text('Is Admin'),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _loading ? null : _updateUserDetails,
+          child: _loading
+              ? const SizedBox(
+                  width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
+        ),
       ],
     );
   }
