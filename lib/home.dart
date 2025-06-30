@@ -41,7 +41,7 @@ class _HomePageState extends State<HomePage> {
   Position? _currentPosition;
   double? _currentDistance;
 
-  String _userWorkLocationDisplay = 'Default (Hyderabad)'; // To display on UI
+  String _userWorkLocationDisplay = 'Default'; // To display on UI
 
   bool _isDarkMode = true; // Controls the current theme mode
 
@@ -162,7 +162,7 @@ class _HomePageState extends State<HomePage> {
       // Fallback to default if there's an error fetching
       _geofenceLatitude = 17.431634;
       _geofenceLongitude = 78.369531;
-      _userWorkLocationDisplay = 'Default (Hyderabad) - Error fetching assigned';
+      _userWorkLocationDisplay = 'Default - Error fetching assigned';
     } finally {
       _checkLocation();
     }
@@ -542,7 +542,7 @@ class _HomePageState extends State<HomePage> {
       ),
       scaffoldBackgroundColor: Colors.white,
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.blue,
+        backgroundColor: Color.fromARGB(255, 36, 19, 130),
         foregroundColor: Colors.white,
         elevation: 4,
         titleTextStyle: TextStyle(
@@ -555,7 +555,7 @@ class _HomePageState extends State<HomePage> {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Colors.blue,
+          backgroundColor: const Color.fromARGB(255, 36, 19, 130),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 5,
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -601,9 +601,9 @@ class _HomePageState extends State<HomePage> {
     return ThemeData(
       brightness: Brightness.dark,
       primarySwatch: Colors.blueGrey,
-      scaffoldBackgroundColor: Colors.blueGrey[900],
+      scaffoldBackgroundColor: Color.fromARGB(255, 58, 70, 86),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.blueGrey[800],
+        backgroundColor: const Color.fromARGB(255, 58, 70, 86),
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
@@ -615,7 +615,7 @@ class _HomePageState extends State<HomePage> {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Colors.amber,
+          backgroundColor: const Color.fromARGB(255, 245, 168, 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 5,
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -740,7 +740,9 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: _isWithinGeofence ? Colors.green[600] : Colors.red[600],
+                    color: _isWithinGeofence
+                        ? const Color.fromARGB(255, 50, 156, 28)
+                        : const Color.fromARGB(255, 184, 18, 6),
                   ),
                 ),
                 const SizedBox(height: 24),

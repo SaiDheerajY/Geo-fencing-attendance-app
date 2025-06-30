@@ -378,14 +378,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final double checkedOutPercentage = total > 0 ? ((total - checkedIn) / total) * 100 : 0;
     return [
       PieChartSectionData(
-        color: Colors.green,
+        color: const Color.fromARGB(255, 14, 242, 41),
         value: checkedInPercentage,
         title: '${checkedInPercentage.toStringAsFixed(1)}%',
         radius: 50,
         titleStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
       ),
       PieChartSectionData(
-        color: Colors.red,
+        color: const Color.fromARGB(255, 255, 17, 0),
         value: checkedOutPercentage,
         title: '${checkedOutPercentage.toStringAsFixed(1)}%',
         radius: 50,
@@ -425,7 +425,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         barRods: [
           BarChartRodData(
             toY: double.parse(totalHours.toStringAsFixed(2)),
-            color: Colors.blue,
+            color: const Color.fromARGB(255, 25, 36, 159),
             width: 16,
             borderRadius: BorderRadius.circular(4),
           ),

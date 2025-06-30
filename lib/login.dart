@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart'; // <-- Added for platform detection
 
 import 'admin_dashboard.dart';
 import 'home.dart';
+import 'reset_password_page.dart'; // Import the new reset password page
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -221,7 +222,27 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     onSubmitted: (_) => _login(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10), // Added some spacing
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        // Navigate to the ResetPasswordPage
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ResetPasswordPage()),
+                        );
+                      },
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 43, 5, 94),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14), // Adjust spacing as needed
                   if (_errorText != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12.0),
