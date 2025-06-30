@@ -52,9 +52,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   DateTimeRange? _selectedDateRange;
   int? _selectedMonth;
   int? _selectedYear;
-  // Screenshot controllers for chart export - Kept for compilation but not used in export
-  final ScreenshotController _pieChartController = ScreenshotController();
-  final ScreenshotController _barChartController = ScreenshotController();
 
   @override
   void initState() {
