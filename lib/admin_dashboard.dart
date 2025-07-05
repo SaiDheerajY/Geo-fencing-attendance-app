@@ -9,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:dropdown_search/dropdown_search.dart';
-import 'package:screenshot/screenshot.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import 'login.dart';
 
@@ -347,8 +346,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: Builder(
             builder: (context) {
               String filterSummary = '';
-              if (_selectedPsNames != null && _selectedPsNames!.isNotEmpty)
+              if (_selectedPsNames != null && _selectedPsNames!.isNotEmpty) {
                 filterSummary += 'PS: ${_selectedPsNames!.join(', ')}  ';
+              }
               if (_selectedDay != null) {
                 filterSummary +=
                     'Day: ${_selectedDay!.year}-${_selectedDay!.month.toString().padLeft(2, '0')}-${_selectedDay!.day.toString().padLeft(2, '0')}  ';
@@ -746,7 +746,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: DropdownButton<SortFilter>(
